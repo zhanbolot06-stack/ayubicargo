@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Трек-номера</title>
+<style>
+  :root { --gap:12px; --radius:14px; --bg:#f6f7fb; --fg:#222; --muted:#777; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; }
+  body {
+    margin:0; padding:20px; background:var(--bg); color:var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+  h1 { margin:0 0 12px; font-size: clamp(20px, 3.8vw, 26px); line-height:1.2; }
+  .card {
+    background:#fff; border-radius:var(--radius);
+    box-shadow:0 8px 28px rgba(0,0,0,.06); padding:16px;
+  }
+  label { display:block; font-size:12px; color:#555; margin:0 0 6px; }
+  input, button, select {
+    height:46px; border-radius:12px; border:1px solid #dcdfe6; padding:0 12px;
+    font-size:16px; outline:none; background:#fff; width:100%;
+    -webkit-appearance:none; appearance:none;
+  }
+  input:focus, select:focus { border-color:#6c8dff; box-shadow:0 0 0 3px rgba(108,141,255,.16); }
+  button {
+    border:none; background:#2d6cff; color:#fff; font-weight:700; cursor:pointer; padding:0 16px;
+  }
+  button.secondary { background:#eef2ff; color:#1f3b8a; border:1px solid #d9e1ff; }
+  button.danger { background:#ffecec; color:#8b1a1a; border:1px solid #ffc9c9; }
+  .toolbar { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+  .link { text-decoration:none; font-weight:700; color:#4e6bff; }
+  .muted { color:var(--muted); font-size:13px; margin-top:8px; }
+
+  /* сетки */
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:var(--gap); }
+  .grid5 { display:grid; grid-template-columns: 1.2fr 1fr 1fr 1fr auto; gap:var(--gap); }
+  .rowR { display:flex; gap:var(--gap); align-items:end; flex-wrap:wrap; }
+
+  /* таблица с горизонтальным скроллом на мобиле */
+  .table-wrap { overflow:auto; -webkit-overflow-scrolling:touch; border-radius:12px; }
+  table { width:100%; border-collapse:collapse; min-width:600px; background:#fff; }
+  th, td { padding:10px 12px; border-bottom:1px solid #eee; font-size:14px; }
+  th { text-align:left; color:#666; font-weight:600; }
+  tr:hover td { background:#fafbff; }
+  .narrow { width:140px; }
+  .idcell { width:70px; color:#999; }
+  .empty { text-align:center; color:#777; padding:18px 12px; }
+  .status-badge { display:inline-block; padding:4px 10px; border-radius:999px; font-size:12px; border:1px solid #e5e7eb; background:#f9fafb; }
+
+  video { width:100%; max-height:340px; background:#000; border-radius:12px; }
+
+  /* мобильные настройки */
+  @media (max-width: 720px) {
+    body { padding:14px; }
+    .grid5 { grid-template-columns: 1fr; }
+    .grid2 { grid-template-columns: 1fr; }
+    .toolbar a.link { font-size:14px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- КЛИЕНТСКАЯ -->
+    <section id="clientPage" class="card" style="display:none">
+      <div class="toolbar">
+        <h1>Список трек-номеров</h1>
+        <a class="link" href="#/admin">Админ</a>
+      </div>
+
+      <div class="grid5" style="margin-bottom:10px">
+        <div>
+          <label for="q">Поиск по треку</label>
+          <input id="q" type="text" placeholder="Начните вводить трек…" inputmode="latin" autocomplete="off" />
+        </div>
+        <div>
+          <label for="dateFrom">Дата с</label>
+          <input id="dateFrom" type="date" />
+        </div>
+        <div>
+          <label for="dateTo">Дата по</label>
+          <input id="dateTo" type="date" />
+        </div>
+        <div>
+          <label for="statusFilter">Статус</label>
+          <select id="statusFilter">
+            <option value="">Все</option>
+            <option>Новый</option>
+            <option>Отправлен</option>
+            <option>В пути</option>
+            <option>Прибыл</option>
+            <option>Выдан</option>
+          </select>
+        </div>
+        <div class="rowR">
+          <button id="resetFilters" class="secondary" style="min-width:140px">Сбросить</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table aria-label="Таблица трек-номеров">
+          <thead>
+            <tr>
+              <th class="idcell">#</th>
+              <th>Трек-номер</th>
+              <th class="narrow">Дата</th>
+              <th class="narrow">Время</th>
+              <th class="narrow">Статус</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyClient">
+            <tr class="empty"><td colspan="5">Пока нет записей</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="muted" id="countBox">—</div>
+    </section>
+
+    <!-- АДМИН -->
+    <section id="adminPage" class="card" style="display:none">
+      <div class="toolbar">
+        <h1>Админ: добавить трек</h1>
+        <a class="link" href="#/">Клиентская</a>
+      </div>
+
+      <div id="adminAuthCard" class="grid2" style="margin-bottom:14px">
+        <input id="adminPass" type="password" placeholder="Пароль администратора" />
+        <button id="adminLoginBtn">Войти</button>
+      </div>
+      <div class="muted" id="authHint">Для настоящей защиты лучше сервер. Здесь пароль хранится в коде.</div>
+
+      <div id="adminWorkCard" style="display:none; margin-top:12px">
+        <div class="grid2" style="margin-bottom:12px">
+          <div>
+            <label for="track">Трек-номер</label>
+            <input id="track" type="text" placeholder="LC859123456CN" minlength="3" maxlength="64" pattern="^[A-Za-z0-9._-]+$" inputmode="latin" />
+          </div>
+          <div>
+            <label for="statusInput">Статус</label>
+            <select id="statusInput">
+              <option>Новый</option>
+              <option selected>Отправлен</option>
+              <option>В пути</option>
+              <option>Прибыл</option>
+              <option>Выдан</option>
+            </select>
+          </div>
+        </div>
+        <div class="rowR" style="margin-bottom:6px">
+          <button id="addBtn">Добавить</button>
+          <span class="status-badge" id="scanStatus">Сканер: выключен</span>
+        </div>
+
+        <div class="grid2" style="margin-bottom:10px">
+          <div>
+            <label for="cameraSelect">Камера</label>
+            <select id="cameraSelect"></select>
+          </div>
+          <div class="rowR">
+            <button id="startScan">Включить сканер</button>
+            <button id="stopScan" class="danger">Выключить</button>
+          </div>
+        </div>
+        <video id="preview" playsinline muted></video>
+        <div class="muted">
+          Если камера не включается — дайте браузеру разрешение на камеру и используйте HTTPS (у GitHub Pages он есть).
+        </div>
+      </div>
+    </section>
+  </div>
+
+<script>
+/* ===== НАСТРОЙКИ ===== */
+const ADMIN_PASSWORD = 'LC859'; // поменяйте
+
+/* ===== ХРАНЕНИЕ ===== */
+const KEY = 'tracks-v5';
+/** @returns {Array<{id:number,track:string,date:string,time:string,status:string}>} */
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } }
+const save = (list) => localStorage.setItem(KEY, JSON.stringify(list));
+
+/* ===== ЭЛЕМЕНТЫ ===== */
+const clientPage = document.getElementById('clientPage');
+const adminPage  = document.getElementById('adminPage');
+
+const q = document.getElementById('q');
+const dateFrom = document.getElementById('dateFrom');
+const dateTo   = document.getElementById('dateTo');
+const statusFilter = document.getElementById('statusFilter');
+const resetFilters = document.getElementById('resetFilters');
+const tbodyClient = document.getElementById('tbodyClient');
+const countBox = document.getElementById('countBox');
+
+const adminAuthCard = document.getElementById('adminAuthCard');
+const adminWorkCard = document.getElementById('adminWorkCard');
+const adminPass = document.getElementById('adminPass');
+const adminLoginBtn = document.getElementById('adminLoginBtn');
+const authHint = document.getElementById('authHint');
+
+const trackInput = document.getElementById('track');
+const statusInput = document.getElementById('statusInput');
+const addBtn = document.getElementById('addBtn');
+
+const cameraSelect = document.getElementById('cameraSelect');
+const startScanBtn = document.getElementById('startScan');
+const stopScanBtn  = document.getElementById('stopScan');
+const preview = document.getElementById('preview');
+const scanStatus = document.getElementById('scanStatus');
+
+/* ===== СОСТОЯНИЕ ===== */
+let rows = load();
+let nextId = rows.reduce((m, r) => Math.max(m, r.id), 0) + 1;
+
+/* ===== УТИЛИТЫ ===== */
+const nowDate = () => new Date().toISOString().slice(0,10);
+const nowTime = () => new Date().toTimeString().slice(0,5);
+const isValidTrack = s => /^[A-Za-z0-9._-]{3,64}$/.test(s || '');
+const inRange = (d, from, to) => (!from || d >= from) && (!to || d <= to);
+
+/* ===== РЕНДЕР (КЛИЕНТ) ===== */
+function renderClient() {
+  const query = (q.value || '').trim().toLowerCase();
+  const f = dateFrom.value || '';
+  const t = dateTo.value   || '';
+  const st = statusFilter.value || '';
+
+  const list = rows
+    .filter(r => r.track.toLowerCase().includes(query)
+              && inRange(r.date, f, t)
+              && (st ? r.status === st : true))
+    .sort((a,b) => b.id - a.id);
+
+  tbodyClient.innerHTML = '';
+  if (!list.length) {
+    const tr = document.createElement('tr');
+    tr.className = 'empty';
+    tr.innerHTML = '<td colspan="5">Нет записей по фильтру</td>';
+    tbodyClient.appendChild(tr);
+    countBox.textContent = 'Ничего не найдено.';
+    return;
+  }
+  list.forEach((r, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="idcell">${list.length - idx}</td>
+      <td>${r.track}</td>
+      <td class="narrow">${r.date}</td>
+      <td class="narrow">${r.time}</td>
+      <td class="narrow"><span class="status-badge">${r.status}</span></td>`;
+    tbodyClient.appendChild(tr);
+  });
+  countBox.textContent = `Показано: ${list.length} из ${rows.length}`;
+}
+
+/* ===== ДОБАВЛЕНИЕ (АДМИН) ===== */
+function addTrack(val, statusVal) {
+  const t = (val || '').trim();
+  if (!isValidTrack(t)) return alert('Трек: буквы/цифры/._- (3–64).');
+  if (rows.some(x => x.track === t)) return alert('Такой трек уже есть.');
+  rows.push({ id: nextId++, track: t, date: nowDate(), time: nowTime(), status: statusVal || 'Отправлен' });
+  save(rows);
+  renderClient();
+}
+addBtn.addEventListener('click', () => {
+  addTrack(trackInput.value, statusInput.value);
+  trackInput.value = '';
+  trackInput.focus();
+});
+trackInput.addEventListener('keydown', e => { if (e.key === 'Enter') addBtn.click(); });
+
+/* ===== ФИЛЬТРЫ ===== */
+[q, dateFrom, dateTo, statusFilter].forEach(el => el.addEventListener('input', renderClient));
+resetFilters.addEventListener('click', () => {
+  q.value=''; dateFrom.value=''; dateTo.value=''; statusFilter.value='';
+  renderClient();
+});
+
+/* ===== РОУТИНГ (#/ , #/admin) ===== */
+function route() {
+  const isAdmin = (location.hash.replace('#','') === '/admin');
+  clientPage.style.display = isAdmin ? 'none' : 'block';
+  adminPage.style.display  = isAdmin ? 'block' : 'none';
+  if (!isAdmin) {
+    renderClient();
+  } else {
+    adminAuthCard.style.display = 'grid';
+    adminWorkCard.style.display = 'none';
+    adminPass.value = '';
+    stopCamera();
+  }
+}
+window.addEventListener('hashchange', route);
+route();
+
+/* ===== ВХОД АДМИНА ===== */
+adminLoginBtn.addEventListener('click', () => {
+  if (adminPass.value === ADMIN_PASSWORD) {
+    adminAuthCard.style.display = 'none';
+    adminWorkCard.style.display = 'block';
+    authHint.style.display = 'none';
+    trackInput.focus();
+  } else {
+    alert('Неверный пароль.');
+  }
+});
+adminPass.addEventListener('keydown', e => { if (e.key === 'Enter') adminLoginBtn.click(); });
+
+/* ===== СКАНЕР (улучшенная совместимость для мобилок) ===== */
+let stream = null, detector = null, scanTimer = null;
+
+async function listCameras() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d => d.kind === 'videoinput');
+    cameraSelect.innerHTML = '';
+    cams.forEach((d, i) => {
+      const opt = document.createElement('option');
+      opt.value = d.deviceId;
+      opt.textContent = d.label || `Камера ${i+1}`;
+      cameraSelect.appendChild(opt);
+    });
+  } catch {}
+}
+
+async function tryGetStream() {
+  // 1) строго задняя
+  try { return await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ exact:'environment' }}, audio:false }); } catch(e){}
+  // 2) предпочтительно задняя
+  try { return await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false }); } catch(e){}
+  // 3) любая
+  return await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+}
+
+async function startCamera(deviceId) {
+  if (stream) stopCamera();
+  try {
+    stream = deviceId
+      ? await navigator.mediaDevices.getUserMedia({ video:{ deviceId:{ exact:deviceId }}, audio:false })
+      : await tryGetStream();
+    preview.srcObject = stream;
+    await preview.play(); // запуск по жесту пользователя
+  } catch (e) {
+    alert('Камера не включилась: ' + e.message + '\nРазрешите доступ к камере в браузере.');
+  }
+}
+
+function stopCamera() {
+  if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  preview.pause(); preview.srcObject = null;
+  scanStatus.textContent = 'Сканер: выключен';
+}
+
+async function initDetector() {
+  if (!('BarcodeDetector' in window)) return null;
+  try {
+    const formats = await BarcodeDetector.getSupportedFormats();
+    return new BarcodeDetector({ formats });
+  } catch { return null; }
+}
+
+async function scanOnce() {
+  if (!detector || !stream) return;
+  try {
+    let source = null;
+
+    // Вариант A: ImageCapture (Chrome/часть Android)
+    const vtrack = stream.getVideoTracks()[0];
+    if ('ImageCapture' in window) {
+      try {
+        const cap = new ImageCapture(vtrack);
+        source = await cap.grabFrame(); // ImageBitmap
+      } catch {}
+    }
+
+    // Вариант B: createImageBitmap(video) (лучше для iOS Safari)
+    if (!source && 'createImageBitmap' in window) {
+      try { source = await createImageBitmap(preview); } catch {}
+    }
+
+    if (!source) return; // нет источника кадра
+
+    const codes = await detector.detect(source);
+    if (codes && codes.length) {
+      const raw = (codes[0].rawValue || '').trim();
+      if (raw) {
+        addTrack(raw, statusInput.value); // дата/время автоматически
+        scanStatus.textContent = 'Сканер: найдено ' + raw;
+        clearInterval(scanTimer);
+        setTimeout(() => { scanStatus.textContent = 'Сканер: включен'; startScanLoop(); }, 1200);
+      }
+    }
+  } catch {}
+}
+
+function startScanLoop() {
+  if (scanTimer) clearInterval(scanTimer);
+  scanTimer = setInterval(scanOnce, 600);
+}
+
+startScanBtn.addEventListener('click', async () => {
+  await listCameras();
+  detector = await initDetector();
+  if (!detector) {
+    alert('Сканер (BarcodeDetector) не поддерживается в этом браузере. Используйте ручной ввод трека.');
+    return;
+  }
+  await startCamera(cameraSelect.value);
+  scanStatus.textContent = 'Сканер: включен';
+  startScanLoop();
+});
+stopScanBtn.addEventListener('click', stopCamera);
+
+/* ===== ПЕРВЫЙ РЕНДЕР ===== */
+renderClient();
+</script>
+</body>
+</html>
